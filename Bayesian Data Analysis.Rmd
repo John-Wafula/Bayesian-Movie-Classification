@@ -1,0 +1,244 @@
+---
+title: "Bayesian Data Analysis"
+author: '...'
+date: "12/13/2021"
+output: html_document
+---
+Loading the packages
+```{r}
+library(ggplot2)
+library(dplyr)
+library(statsr)
+library(BAS)
+```
+
+we will use the movies dataset
+
+```{r}
+movies<-read_csv("C:\Users\Admin\Downloads\Movies.csv")
+```
+
+Part 1: Data
+For generalizability, the data set is made up of 651 randomly picked movies that were produced and published before 2016. Because no random assignment was utilized, this study is an observational rather than an experimental study, and it cannot be used to infer causality. Let's start with the fundamentals of the data set:
+```{r}
+str(movies)
+head(movies)
+```
+The dataset contains three categories of variables: numeric, factor, and character. We need to translate character variables into component variables in order to develop a prediction model.
+
+## Data Manipulation
+
+Make a new variable from title type: A new variable called feature film should be created with the levels yes (feature films) and no (non-feature films).
+Create a new genre-based variable: Drama should be a new variable with yes (dramas) and no (non-dramas) levels.
+Make a new variable based on the mpaa rating variable: mpaa rating R should be a new variable with the values yes (R-rated films) and no (non-R-rated films) (2 pt)
+Using thtr rel month, create two new variables:
+
+New variable oscar season with levels yes (if film is released in November, October, or December) and no (if film is not released in November, October, or December).
+
+Summer season is a new variable having the values yes (if the film is released in May, June, July, or August) and no (if the film is not released in May, June, July, or August).
+
+```{r}
+feature_film_ind <- movies$title_type == "Feature Film"
+feature_film <- factor(levels = c("yes", "no"))
+feature_film[feature_film_ind] <- "yes"
+feature_film[!feature_film_ind] <- "no"
+
+
+drama_ind <- movies$genre == "Drama"
+drama <- factor(levels = c("yes", "no"))
+drama[drama_ind] <- "yes"
+drama[!drama_ind] <- "no"
+
+mpaa_rating_R_ind <- movies$mpaa_rating == "R"
+mpaa_rating_R <- factor(levels = c("yes", "no"))
+mpaa_rating_R[mpaa_rating_R_ind] <- "yes"
+mpaa_rating_R[!mpaa_rating_R_ind] <- "no"
+
+oscar_season_ind <- movies$thtr_rel_month >= 10
+oscar_season <- factor(levels = c("yes", "no"))
+oscar_season[oscar_season_ind] <- "yes"
+oscar_season[!oscar_season_ind] <- "no"
+
+summer_season_ind <- movies$thtr_rel_month >= 5 & movies$thtr_rel_month <= 8 
+summer_season <- factor(levels = c("yes", "no"))
+summer_season[summer_season_ind] <- "yes"
+summer_season[!summer_season_ind] <- "no"
+```
+
+
+```{r}
+movies  = mutate(movies,
+       feature_film = ifelse(title_type == 'Feature Film', "yes", "no"),
+       drama = ifelse(genre == 'Drama', "yes", "no"),
+       mpaa_rating_R = ifelse(mpaa_rating == 'R', "yes", "no"),
+       oscar_season = ifelse(thtr_rel_month %in% c(10, 11, 12), "yes", "no"),
+       summer_season = ifelse(thtr_rel_month %in% c(5, 6, 7, 8), "yes", "no"))
+```
+
+## Exploratory Data Analysis
+
+```{r}
+ggplot(data = movies, aes(x = feature_film, y = audience_score, fill = feature_film)) + geom_boxplot()
+```
+It show that feature film have relatively lower audience score.
+
+The numbers of “yes” and “no” are 591, 60.
+
+## We can evaluate whether there are differences in audience scores between feature and non-feature films using Bayesian hypothesis testing.
+
+```{r}
+bayes_inference(y = audience_score, x = feature_film, data = movies, statistic = "mean", type = "ht",null=0, alternative = "twosided")
+```
+
+We can see from the data that there was evidence of a difference between the two groups.
+
+We can run the exact same testing for the other variables.
+
+the link between the movie's audience score and its category.
+
+```{r}
+ggplot(data = movies, aes(x = drama, y = audience_score, fill = drama)) + geom_boxplot()
+```
+```{r}
+bayes_inference(y = audience_score, x = drama, data = movies, statistic = "mean", type = "ht",null=0, alternative = "twosided")
+```
+
+It shows that drama have a slightly lower audience score than other movies.
+
+The relationship between auddience score and rating.
+
+```{r}
+ggplot(data = movies, aes(x = mpaa_rating_R, y = audience_score, fill = mpaa_rating_R)) + geom_boxplot()
+```
+```{r}
+bayes_inference(y = audience_score, x = mpaa_rating_R, data = movies, statistic = "mean", type = "ht",null=0, alternative = "twosided")
+```
+
+There is no discernible difference in audience score between films with a rating of R and those with a lower rating.
+
+The association between the movie's audience score and its release date.
+
+
+```{r}
+ggplot(data = movies, aes(x = oscar_season, y = audience_score, fill = oscar_season)) + geom_boxplot()
+```
+
+```{r}
+ggplot(data = movies, aes(x = summer_season, y = audience_score, fill = summer_season)) + geom_boxplot()
+```
+```{r}
+bayes_inference(y = audience_score, x = oscar_season, data = movies, statistic = "mean", type = "ht",null=0, alternative = "twosided")
+```
+```{r}
+bayes_inference(y = audience_score, x = summer_season, data = movies, statistic = "mean", type = "ht",null=0, alternative = "twosided")
+```
+
+As can be seen, movies released during Oscar season have a slightly better audience score than those released during the summer season, while movies released during the summer season have a somewhat lower audience score.
+
+## Part 4 : Modelling and MOdel Selection
+MOdel selection can be through the following methods
+4 ways to conducted model selection:
+
+Baysian model selection is conduccted by minimize the BIA or AIC（Bayes model selection)
+AIC model selection
+pick best predictive model
+include costs associated with using model
+
+Then certain situations appeared, we can’t use those criteria to select models, and intead, we use Bayesian model average. image( fit, rotate = F) will help a lot to understand the models.
+
+```{r}
+attach(movies)
+newdata <- data.frame(audience_score, feature_film, drama, runtime, mpaa_rating_R, thtr_rel_year, oscar_season, summer_season, imdb_rating, imdb_num_votes, critics_score, best_pic_nom, best_pic_win, best_actor_win, best_actress_win, best_dir_win, top200_box)
+detach(movies)
+
+fit <- bas.lm(audience_score ~ ., data = na.omit(newdata), prior = "BIC", modelprior = uniform())
+summary(fit)
+```
+```{r}
+image( fit, rotate = F)
+```
+The posterior model inclusion probability for each variable, as well as the most likely models, can be obtained by printing the model object and using the summary command. Models' posterior probabilities are also provided. The model that incorporates imdb rating and critics score as explanatory variables has the greatest posterior prob in this situation.
+
+The posterior probability of the naive model with all variables included is larger than 0.5.
+```{r}
+fit <- bas.lm(audience_score ~ ., data = newdata, prior = "ZS-null", modelprior = uniform())
+```
+
+```{r}
+summary(fit)
+```
+So the naive model includes imdb_rating and critics_score as explanatory variables.
+
+## Diagnosis of the Model
+
+```{r}
+fit1 <- bas.lm(audience_score ~ . , data = newdata)
+```
+
+```{r}
+plot(fit1, which=1)
+```
+
+The observations 126, 216, and 251 have been identified as the points with the three biggest absolute residuals, indicating that there may be some outliers in the data. We must determine whether or not these points are outliers.
+
+## Coeficients
+
+```{r}
+coef <- coefficients(fit1)
+confint(coef)
+```
+The accountant (https://www.rottentomatoes.com/m/the accountant 2016) is our choice. This film has an 84 percent audience rating and a 52 percent critics rating. http://www.imdb.com/title/tt2140479/?ref =nv sr 1 The imdb rating is 7.8.
+
+While accurate inference is generally attainable with predictive intervals under model selection, simulation is employed in BAS to create predictive intervals with Bayesian Model averaging.
+
+You can get a 95 percent credible interval for forecasting audience score 
+
+## Creating Hieracichal Models
+
+```{r non-hierarchical}
+library(rstanarm)
+library(bayestestR)
+library(lme4)
+fit1 <- stan_glm(audience_score ~ imdb_rating + critics_score , data = movies)
+  
+```  
+## Posterior Predictive check plot
+```{r pp sleep1}
+pp_check(fit1)
+
+```
+## Loo function as a diagnostic of our Model
+
+```{r}
+loo(fit1)
+```
+##Checking every point in the required element
+
+```{r}
+describe_posterior(fit1, centrality = "mean", ci = 0.9, rope_ci = 0.9)
+```
+
+```{r}
+newdata = data.frame(imdb_rating = 7.8, critics_score = 52, audience_score = 84)
+fit <- bas.lm(audience_score ~ imdb_rating + critics_score , data = movies)
+predict_fit <- predict(fit, newdata = newdata, interval = "confidence")
+predict_fit$fit
+```
+```{r}
+
+sd(predict_fit$Ypred)
+```
+## Conclusion
+
+The goal of this research is to discover what factors influence a film's popularity and other fascinating information using bayesian inference, and it turns out that the critics' score and the imdb rating are the most relevant factors.
+
+I went with a model that had a high probability predictor. This model is pretty basic, however it may not be particularly accurate.
+
+
+
+
+
+
+
+
+
